@@ -64,8 +64,6 @@ namespace Azure.DataApiBuilder.Core.Services
 
         protected const int NUMBER_OF_RESTRICTIONS = 4;
 
-        protected string ConnectionString { get; init; }
-
         protected IQueryBuilder SqlQueryBuilder { get; init; }
 
         protected DataSet EntitiesDataSet { get; init; }
@@ -89,6 +87,8 @@ namespace Azure.DataApiBuilder.Core.Services
         public readonly bool _isValidateOnly;
         public List<Exception> SqlMetadataExceptions { get; private set; } = new();
 
+        private readonly TenantContext _tenantContext;
+
         private void HandleOrRecordException(Exception e)
         {
             if (_isValidateOnly)
@@ -106,6 +106,7 @@ namespace Azure.DataApiBuilder.Core.Services
             IAbstractQueryManagerFactory engineFactory,
             ILogger<ISqlMetadataProvider> logger,
             string dataSourceName,
+            TenantContext tenantContext,
             bool isValidateOnly = false)
         {
             RuntimeConfig runtimeConfig = runtimeConfigProvider.GetConfig();
@@ -115,6 +116,8 @@ namespace Azure.DataApiBuilder.Core.Services
             _entities = runtimeConfig.Entities.Where(x => string.Equals(runtimeConfig.GetDataSourceNameFromEntityName(x.Key), _dataSourceName, StringComparison.OrdinalIgnoreCase)).ToDictionary(x => x.Key, x => x.Value);
             _logger = logger;
             _isValidateOnly = isValidateOnly;
+            _tenantContext = tenantContext;
+
             foreach ((string entityName, Entity entityMetatdata) in _entities)
             {
                 if (runtimeConfig.IsRestEnabled)
@@ -128,11 +131,24 @@ namespace Azure.DataApiBuilder.Core.Services
                 }
             }
 
-            ConnectionString = runtimeConfig.GetDataSourceFromDataSourceName(dataSourceName).ConnectionString;
             EntitiesDataSet = new();
             QueryManagerFactory = engineFactory;
             SqlQueryBuilder = QueryManagerFactory.GetQueryBuilder(_databaseType);
             QueryExecutor = QueryManagerFactory.GetQueryExecutor(_databaseType);
+        }
+
+        protected string GetConnectionString()
+        {
+            string connectionString = _runtimeConfigProvider.GetConfig().GetDataSourceFromDataSourceName(_dataSourceName).ConnectionString;
+
+            if (_tenantContext != null && _tenantContext.ConnectionString != null) // Add this condition
+            {
+                return _tenantContext.ConnectionString;
+            }
+            else
+            {
+                return connectionString;
+            }
         }
 
         /// <inheritdoc />
@@ -393,7 +409,7 @@ namespace Azure.DataApiBuilder.Core.Services
             StoredProcedureDefinition storedProcedureDefinition)
         {
             using ConnectionT conn = new();
-            conn.ConnectionString = ConnectionString;
+            conn.ConnectionString = GetConnectionString();
             DataTable procedureMetadata;
             string[] procedureRestrictions = new string[NUMBER_OF_RESTRICTIONS];
 
@@ -1008,7 +1024,7 @@ namespace Azure.DataApiBuilder.Core.Services
                 // if DatabaseType is not postgresql will short circuit and use default
                 if (_databaseType is not DatabaseType.PostgreSQL ||
                     !PostgreSqlMetadataProvider.TryGetSchemaFromConnectionString(
-                        connectionString: ConnectionString,
+                        connectionString: this.GetConnectionString(),
                         out schemaName))
                 {
                     schemaName = GetDefaultSchemaName();
@@ -1161,18 +1177,6 @@ namespace Azure.DataApiBuilder.Core.Services
         /// <param name="paramName">Common prefix of param names.</param>
         /// <param name="paramValues">Values of the param.</param>
         /// <returns></returns>
-        private static Dictionary<string, object> GetQueryParams(
-            string paramName,
-            object[] paramValues)
-        {
-            Dictionary<string, object> parameters = new();
-            for (int paramNumber = 0; paramNumber < paramValues.Length; paramNumber++)
-            {
-                parameters.Add($"{paramName}{paramNumber}", paramValues[paramNumber]);
-            }
-
-            return parameters;
-        }
 
         /// <summary>
         /// Generate the mappings of exposed names to
@@ -1484,7 +1488,7 @@ namespace Azure.DataApiBuilder.Core.Services
         private async Task ValidateDatabaseConnection()
         {
             using ConnectionT conn = new();
-            conn.ConnectionString = ConnectionString;
+            conn.ConnectionString = this.GetConnectionString();
             await QueryExecutor.SetManagedIdentityAccessTokenIfAnyAsync(conn, _dataSourceName);
             try
             {
@@ -1511,6 +1515,9 @@ namespace Azure.DataApiBuilder.Core.Services
             string tableName)
         {
             using ConnectionT conn = new();
+
+            string connectionString = GetConnectionString();
+
             // If connection string is set to empty string
             // we throw here to avoid having to sort out
             // complicated db specific exception messages.
@@ -1518,7 +1525,7 @@ namespace Azure.DataApiBuilder.Core.Services
             // The runtime config has a public setter so we check
             // here for empty connection string to ensure that
             // it was not set to an invalid state after initialization.
-            if (string.IsNullOrWhiteSpace(ConnectionString))
+            if (string.IsNullOrWhiteSpace(connectionString))
             {
                 throw new DataApiBuilderException(
                     DataApiBuilderException.CONNECTION_STRING_ERROR_MESSAGE +
@@ -1531,7 +1538,7 @@ namespace Azure.DataApiBuilder.Core.Services
             {
                 // for non-MySql DB types, this will throw an exception
                 // for malformed connection strings
-                conn.ConnectionString = ConnectionString;
+                conn.ConnectionString = connectionString;
                 await QueryExecutor.SetManagedIdentityAccessTokenIfAnyAsync(conn, _dataSourceName);
             }
             catch (Exception ex)
@@ -1600,7 +1607,7 @@ namespace Azure.DataApiBuilder.Core.Services
             string tableName)
         {
             using ConnectionT conn = new();
-            conn.ConnectionString = ConnectionString;
+            conn.ConnectionString = GetConnectionString();
             await QueryExecutor.SetManagedIdentityAccessTokenIfAnyAsync(conn, _dataSourceName);
             await conn.OpenAsync();
             // We can specify the Catalog, Schema, Table Name, Column Name to get

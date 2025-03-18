@@ -36,8 +36,9 @@ namespace Azure.DataApiBuilder.Core.Services
             IAbstractQueryManagerFactory queryManagerFactory,
             ILogger<ISqlMetadataProvider> logger,
             string dataSourceName,
+            TenantContext tenantContext,
             bool isValidateOnly = false)
-            : base(runtimeConfigProvider, queryManagerFactory, logger, dataSourceName, isValidateOnly)
+            : base(runtimeConfigProvider, queryManagerFactory, logger, dataSourceName, tenantContext, isValidateOnly)
         {
             _runtimeConfigProvider = runtimeConfigProvider;
         }
@@ -144,7 +145,7 @@ namespace Azure.DataApiBuilder.Core.Services
             StoredProcedureDefinition storedProcedureDefinition)
         {
             using DbConnection conn = new SqlConnection();
-            conn.ConnectionString = ConnectionString;
+            conn.ConnectionString = GetConnectionString();
             await QueryExecutor.SetManagedIdentityAccessTokenIfAnyAsync(conn, _dataSourceName);
             await conn.OpenAsync();
 

@@ -3,6 +3,7 @@
 
 using System;
 using System.IO.Abstractions;
+using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using Azure.DataApiBuilder.Auth;
@@ -96,6 +97,8 @@ namespace Azure.DataApiBuilder.Service
             RuntimeConfigProvider configProvider = new(configLoader);
             _configProvider = configProvider;
 
+            services.AddScoped<TenantContext>();
+
             services.AddSingleton(fileSystem);
             services.AddSingleton(configLoader);
             services.AddSingleton(configProvider);
@@ -186,7 +189,7 @@ namespace Azure.DataApiBuilder.Service
             services.AddSingleton<GraphQLSchemaCreator>();
             services.AddSingleton<GQLFilterParser>();
             services.AddSingleton<RequestValidator>();
-            services.AddSingleton<RestService>();
+            services.AddTransient<RestService>();
             services.AddSingleton<BasicHealthReportResponseWriter>();
             services.AddSingleton<ComprehensiveHealthReportResponseWriter>();
 
@@ -405,6 +408,12 @@ namespace Azure.DataApiBuilder.Service
             // https://andrewlock.net/understanding-pathbase-in-aspnetcore/#placing-usepathbase-in-the-correct-location
             app.UseCorrelationIdMiddleware();
             app.UsePathRewriteMiddleware();
+
+            if (runtimeConfig?.Tenants != null && runtimeConfig.Tenants.Any())
+            {
+                // Use the TenantMiddleware extension method
+                app.UseTenantMiddleware();
+            }
 
             // SwaggerUI visualization of the OpenAPI description document is only available
             // in developer mode in alignment with the restriction placed on ChilliCream's BananaCakePop IDE.

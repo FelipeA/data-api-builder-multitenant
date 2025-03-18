@@ -22,6 +22,7 @@ namespace Azure.DataApiBuilder.Core.Services.MetadataProviders
         private readonly IAbstractQueryManagerFactory _queryManagerFactory;
         private readonly ILogger<ISqlMetadataProvider> _logger;
         private readonly IFileSystem _fileSystem;
+        private readonly TenantContext _tenantContext;
         private readonly bool _isValidateOnly;
 
         public MetadataProviderFactory(
@@ -30,6 +31,7 @@ namespace Azure.DataApiBuilder.Core.Services.MetadataProviders
             ILogger<ISqlMetadataProvider> logger,
             IFileSystem fileSystem,
             HotReloadEventHandler<HotReloadEventArgs>? handler,
+            TenantContext tenantContext,
             bool isValidateOnly = false)
         {
             handler?.Subscribe(METADATA_PROVIDER_FACTORY_ON_CONFIG_CHANGED, OnConfigChanged);
@@ -39,6 +41,7 @@ namespace Azure.DataApiBuilder.Core.Services.MetadataProviders
             _fileSystem = fileSystem;
             _isValidateOnly = isValidateOnly;
             _metadataProviders = new Dictionary<string, ISqlMetadataProvider>();
+            _tenantContext = tenantContext;
             ConfigureMetadataProviders();
         }
 
@@ -49,10 +52,10 @@ namespace Azure.DataApiBuilder.Core.Services.MetadataProviders
                 ISqlMetadataProvider metadataProvider = dataSource.DatabaseType switch
                 {
                     DatabaseType.CosmosDB_NoSQL => new CosmosSqlMetadataProvider(_runtimeConfigProvider, _fileSystem),
-                    DatabaseType.MSSQL => new MsSqlMetadataProvider(_runtimeConfigProvider, _queryManagerFactory, _logger, dataSourceName, _isValidateOnly),
-                    DatabaseType.DWSQL => new MsSqlMetadataProvider(_runtimeConfigProvider, _queryManagerFactory, _logger, dataSourceName, _isValidateOnly),
-                    DatabaseType.PostgreSQL => new PostgreSqlMetadataProvider(_runtimeConfigProvider, _queryManagerFactory, _logger, dataSourceName, _isValidateOnly),
-                    DatabaseType.MySQL => new MySqlMetadataProvider(_runtimeConfigProvider, _queryManagerFactory, _logger, dataSourceName, _isValidateOnly),
+                    DatabaseType.MSSQL => new MsSqlMetadataProvider(_runtimeConfigProvider, _queryManagerFactory, _logger, dataSourceName, _tenantContext, _isValidateOnly),
+                    DatabaseType.DWSQL => new MsSqlMetadataProvider(_runtimeConfigProvider, _queryManagerFactory, _logger, dataSourceName, _tenantContext, _isValidateOnly),
+                    DatabaseType.PostgreSQL => new PostgreSqlMetadataProvider(_runtimeConfigProvider, _queryManagerFactory, _logger, dataSourceName, _tenantContext, _isValidateOnly),
+                    DatabaseType.MySQL => new MySqlMetadataProvider(_runtimeConfigProvider, _queryManagerFactory, _logger, dataSourceName, _tenantContext, _isValidateOnly),
                     _ => throw new NotSupportedException(dataSource.DatabaseTypeNotSupportedMessage),
                 };
 

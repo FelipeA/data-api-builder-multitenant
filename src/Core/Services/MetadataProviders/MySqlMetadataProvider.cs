@@ -26,12 +26,13 @@ namespace Azure.DataApiBuilder.Core.Services
             IAbstractQueryManagerFactory queryManagerFactory,
             ILogger<ISqlMetadataProvider> logger,
             string dataSourceName,
+            TenantContext tenantContext,
             bool isValidateOnly = false)
-            : base(runtimeConfigProvider, queryManagerFactory, logger, dataSourceName, isValidateOnly)
+            : base(runtimeConfigProvider, queryManagerFactory, logger, dataSourceName, tenantContext, isValidateOnly)
         {
             try
             {
-                using MySqlConnection conn = new(ConnectionString);
+                using MySqlConnection conn = new(GetConnectionString());
                 _databaseName = conn.Database;
             }
             catch
@@ -47,7 +48,7 @@ namespace Azure.DataApiBuilder.Core.Services
             string schemaName,
             string tableName)
         {
-            using MySqlConnection conn = new(ConnectionString);
+            using MySqlConnection conn = new(GetConnectionString());
             await QueryExecutor.SetManagedIdentityAccessTokenIfAnyAsync(conn, _dataSourceName);
             await conn.OpenAsync();
 
@@ -84,7 +85,7 @@ namespace Azure.DataApiBuilder.Core.Services
                 string[] schemaNames,
                 string[] tableNames)
         {
-            MySqlConnectionStringBuilder connBuilder = new(ConnectionString);
+            MySqlConnectionStringBuilder connBuilder = new(GetConnectionString());
             Dictionary<string, DbConnectionParam> parameters = new();
 
             string[] databaseNameParams =
