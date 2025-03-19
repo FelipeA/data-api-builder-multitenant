@@ -323,7 +323,6 @@ public class RuntimeConfigValidator : IConfigValidator
             queryManagerFactory: queryManagerFactory,
             logger: loggerFactory.CreateLogger<ISqlMetadataProvider>(),
             fileSystem: _fileSystem,
-            tenantContext: new(),
             isValidateOnly: _isValidateOnly,
             handler: null);
         await metadataProviderFactory.InitializeAsync();

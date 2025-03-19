@@ -25,9 +25,8 @@ namespace Azure.DataApiBuilder.Core.Services
             IAbstractQueryManagerFactory queryManagerFactory,
             ILogger<ISqlMetadataProvider> logger,
             string dataSourceName,
-            TenantContext tenantContext,
             bool isValidateOnly = false)
-            : base(runtimeConfigProvider, queryManagerFactory, logger, dataSourceName, tenantContext, isValidateOnly)
+            : base(runtimeConfigProvider, queryManagerFactory, logger, dataSourceName, isValidateOnly)
         {
         }
 

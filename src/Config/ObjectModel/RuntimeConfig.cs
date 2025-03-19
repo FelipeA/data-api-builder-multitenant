@@ -20,8 +20,6 @@ public record RuntimeConfig
 
     public DataSource DataSource { get; init; }
 
-    public Dictionary<string, DataSource>? Tenants { get; init; }
-
     public RuntimeOptions? Runtime { get; init; }
 
     public RuntimeEntities Entities { get; init; }
@@ -189,40 +187,31 @@ public record RuntimeConfig
     /// <param name="Runtime">Runtime settings.</param>
     /// <param name="DataSourceFiles">List of datasource files for multiple db scenario. Null for single db scenario.</param>
     [JsonConstructor]
-#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
     public RuntimeConfig(
-#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider adding the 'required' modifier or declaring as nullable.
-    string? Schema,
-    DataSource DataSource,
-    RuntimeEntities Entities,
-    RuntimeOptions? Runtime = null,
-    DataSourceFiles? DataSourceFiles = null,
-    Dictionary<string, DataSource>? Tenants = null)
+        string? Schema,
+        DataSource DataSource,
+        RuntimeEntities Entities,
+        RuntimeOptions? Runtime = null,
+        DataSourceFiles? DataSourceFiles = null)
     {
         this.Schema = Schema ?? DEFAULT_CONFIG_SCHEMA_LINK;
         this.DataSource = DataSource;
-        this.Tenants = Tenants;
         this.Runtime = Runtime;
         this.Entities = Entities;
         this.DefaultDataSourceName = Guid.NewGuid().ToString();
 
-        if (this.DataSource is null && this.Tenants is null && (!this.Tenants?.Any() ?? true))
+        if (this.DataSource is null)
         {
             throw new DataApiBuilderException(
-                message: "data-source and tenants are mandatory properties in DAB Config",
+                message: "data-source is a mandatory property in DAB Config",
                 statusCode: HttpStatusCode.UnprocessableEntity,
                 subStatusCode: DataApiBuilderException.SubStatusCodes.ConfigValidationError);
-        }
-
-        if (this.DataSource is null && this.Tenants is not null)
-        {
-            this.DataSource = this.Tenants.Values.First();
         }
 
         // we will set them up with default values
         _dataSourceNameToDataSource = new Dictionary<string, DataSource>
         {
-            { this.DefaultDataSourceName, this.DataSource ?? new (DatabaseType.MSSQL, "", null) }
+            { this.DefaultDataSourceName, this.DataSource }
         };
 
         _entityNameToDataSourceName = new Dictionary<string, string>();
@@ -276,6 +265,7 @@ public record RuntimeConfig
         }
 
         SetupDataSourcesUsed();
+
     }
 
     /// <summary>
@@ -291,11 +281,10 @@ public record RuntimeConfig
     /// <param name="DataSourceNameToDataSource">Dictionary mapping datasourceName to datasource object.</param>
     /// <param name="EntityNameToDataSourceName">Dictionary mapping entityName to datasourceName.</param>
     /// <param name="DataSourceFiles">Datasource files which represent list of child runtimeconfigs for multi-db scenario.</param>
-    public RuntimeConfig(string Schema, DataSource DataSource, RuntimeOptions Runtime, RuntimeEntities Entities, string DefaultDataSourceName, Dictionary<string, DataSource> DataSourceNameToDataSource, Dictionary<string, string> EntityNameToDataSourceName, DataSourceFiles? DataSourceFiles = null, Dictionary<string, DataSource>? Tenants = null)
+    public RuntimeConfig(string Schema, DataSource DataSource, RuntimeOptions Runtime, RuntimeEntities Entities, string DefaultDataSourceName, Dictionary<string, DataSource> DataSourceNameToDataSource, Dictionary<string, string> EntityNameToDataSourceName, DataSourceFiles? DataSourceFiles = null)
     {
         this.Schema = Schema;
         this.DataSource = DataSource;
-        this.Tenants = Tenants;
         this.Runtime = Runtime;
         this.Entities = Entities;
         this.DefaultDataSourceName = DefaultDataSourceName;
