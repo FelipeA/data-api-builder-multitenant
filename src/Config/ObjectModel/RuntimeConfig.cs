@@ -20,6 +20,8 @@ public record RuntimeConfig
 
     public DataSource DataSource { get; init; }
 
+    public Dictionary<string, DataSource> Tenants { get; init; }
+
     public RuntimeOptions? Runtime { get; init; }
 
     public RuntimeEntities Entities { get; init; }
@@ -150,6 +152,13 @@ public record RuntimeConfig
 
     private Dictionary<string, string> _entityPathNameToEntityName = new();
 
+    [JsonIgnore]
+    public bool IsEnabledMultiTenancy {
+        get {
+            return this.Runtime?.MultiTenancy != null && this.Runtime.MultiTenancy.Enabled;
+        }
+    }
+
     /// <summary>
     /// List of all datasources.
     /// </summary>
@@ -192,10 +201,12 @@ public record RuntimeConfig
         DataSource DataSource,
         RuntimeEntities Entities,
         RuntimeOptions? Runtime = null,
-        DataSourceFiles? DataSourceFiles = null)
+        DataSourceFiles? DataSourceFiles = null,
+        Dictionary<string, DataSource>? Tenants = null)
     {
         this.Schema = Schema ?? DEFAULT_CONFIG_SCHEMA_LINK;
         this.DataSource = DataSource;
+        this.Tenants = Tenants ?? new ();
         this.Runtime = Runtime;
         this.Entities = Entities;
         this.DefaultDataSourceName = Guid.NewGuid().ToString();
@@ -213,6 +224,22 @@ public record RuntimeConfig
         {
             { this.DefaultDataSourceName, this.DataSource }
         };
+
+        if (IsEnabledMultiTenancy)
+        {
+            if (Tenants is null)
+            {
+                throw new DataApiBuilderException(
+                    message: "tenants is a mandatory property in DAB Config when multi-tenancy is enabled",
+                    statusCode: HttpStatusCode.UnprocessableEntity,
+                    subStatusCode: DataApiBuilderException.SubStatusCodes.ConfigValidationError);
+            }
+        }
+
+        foreach (KeyValuePair<string, DataSource> tenant in Tenants ?? new Dictionary<string, DataSource>())
+        {
+            _dataSourceNameToDataSource.TryAdd($"{this.DefaultDataSourceName}--{tenant.Key}", tenant.Value);
+        }
 
         _entityNameToDataSourceName = new Dictionary<string, string>();
         if (Entities is null)
@@ -285,6 +312,7 @@ public record RuntimeConfig
     {
         this.Schema = Schema;
         this.DataSource = DataSource;
+        this.Tenants = new();
         this.Runtime = Runtime;
         this.Entities = Entities;
         this.DefaultDataSourceName = DefaultDataSourceName;

@@ -16,6 +16,7 @@ public record RuntimeOptions
     public TelemetryOptions? Telemetry { get; init; }
     public EntityCacheOptions? Cache { get; init; }
     public PaginationOptions? Pagination { get; init; }
+    public MultiTenancy? MultiTenancy { get; init; }
 
     [JsonConstructor]
     public RuntimeOptions(
@@ -26,7 +27,9 @@ public record RuntimeOptions
         TelemetryOptions? Telemetry = null,
         EntityCacheOptions? Cache = null,
         PaginationOptions? Pagination = null,
-        RuntimeHealthCheckConfig? Health = null)
+        RuntimeHealthCheckConfig? Health = null,
+        MultiTenancy? MultiTenancy = null
+        )
     {
         this.Health = Health;
         this.Rest = Rest;
@@ -36,6 +39,7 @@ public record RuntimeOptions
         this.Telemetry = Telemetry;
         this.Cache = Cache;
         this.Pagination = Pagination;
+        this.MultiTenancy = MultiTenancy;
     }
 
     /// <summary>

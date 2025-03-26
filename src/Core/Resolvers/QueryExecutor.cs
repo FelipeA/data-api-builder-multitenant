@@ -11,6 +11,7 @@ using System.Text.Json.Nodes;
 using Azure.DataApiBuilder.Config;
 using Azure.DataApiBuilder.Core.Configurations;
 using Azure.DataApiBuilder.Core.Models;
+using Azure.DataApiBuilder.Core.Services;
 using Azure.DataApiBuilder.Service.Exceptions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
@@ -32,6 +33,8 @@ namespace Azure.DataApiBuilder.Core.Resolvers
         protected ILogger<IQueryExecutor> QueryExecutorLogger { get; }
         protected RuntimeConfigProvider ConfigProvider { get; }
         protected IHttpContextAccessor HttpContextAccessor { get; }
+
+        private readonly MultiTenantDataSourceService _multiTenantDataSourceService;
 
         // The maximum number of attempts that can be made to execute the query successfully in addition to the first attempt.
         // So to say in case of transient exceptions, the query will be executed (_maxRetryCount + 1) times at max.
@@ -60,6 +63,7 @@ namespace Azure.DataApiBuilder.Core.Resolvers
             ConnectionStringBuilders = new Dictionary<string, DbConnectionStringBuilder>();
             ConfigProvider = configProvider;
             HttpContextAccessor = httpContextAccessor;
+            _multiTenantDataSourceService = new(configProvider);
             _maxResponseSizeMB = configProvider.GetConfig().MaxResponseSizeMB();
             _maxResponseSizeBytes = _maxResponseSizeMB * 1024 * 1024;
 
@@ -98,7 +102,7 @@ namespace Azure.DataApiBuilder.Core.Resolvers
                 dataSourceName = ConfigProvider.GetConfig().DefaultDataSourceName;
             }
 
-            using TConnection conn = CreateConnection(dataSourceName);
+            using TConnection conn = CreateConnection(httpContext, dataSourceName);
 
             // Check if connection creation succeeded
             if (conn == null)
@@ -178,7 +182,7 @@ namespace Azure.DataApiBuilder.Core.Resolvers
                 dataSourceName = ConfigProvider.GetConfig().DefaultDataSourceName;
             }
 
-            using TConnection conn = CreateConnection(dataSourceName);
+            using TConnection conn = CreateConnection(httpContext, dataSourceName);
 
             // Check if connection creation succeeded
             if (conn == null)
@@ -238,6 +242,23 @@ namespace Azure.DataApiBuilder.Core.Resolvers
             });
 
             return result;
+        }
+
+        public virtual TConnection CreateConnection(HttpContext? httpContext, string dataSourceName)
+        {
+            if (httpContext != null)
+            {
+                bool foundConnectionString = _multiTenantDataSourceService.GetConnectionString(httpContext, dataSourceName, ConnectionStringBuilders, out string connectionString);
+
+                if (foundConnectionString)
+                {
+                    return new() {
+                        ConnectionString = connectionString
+                    };
+                }
+            }
+
+            return CreateConnection(dataSourceName);
         }
 
         /// <summary>

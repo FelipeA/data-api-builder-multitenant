@@ -100,6 +100,10 @@ namespace Azure.DataApiBuilder.Service
             services.AddSingleton(configLoader);
             services.AddSingleton(configProvider);
 
+            // Register DataSourceOptions for Dependency Injection
+            services.AddSingleton<MultiTenantDataSourceService>();
+            services.AddSingleton<MultiTenantTokenService>();
+
             bool runtimeConfigAvailable = configProvider.TryGetConfig(out RuntimeConfig? runtimeConfig);
 
             if (runtimeConfigAvailable
@@ -468,6 +472,9 @@ namespace Azure.DataApiBuilder.Service
             // When enabled, the middleware will prevent Banana Cake Pop(GraphQL client) from loading
             // without proper authorization headers.
             app.UseClientRoleHeaderAuthorizationMiddleware();
+
+            app.UseMiddleware<RequestHandlerMiddleware>();
+            app.UseMiddleware<GraphQLRequestHandlerMiddleware>();
 
             IRequestExecutorResolver requestExecutorResolver = app.ApplicationServices.GetRequiredService<IRequestExecutorResolver>();
             _hotReloadEventHandler.Subscribe("GRAPHQL_SCHEMA_EVICTION_ON_CONFIG_CHANGED", (sender, args) => EvictGraphQLSchema(requestExecutorResolver));

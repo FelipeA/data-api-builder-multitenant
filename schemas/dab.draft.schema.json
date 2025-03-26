@@ -134,6 +134,49 @@
       "description": "Names of runtime configuration files referencing additional databases.",
       "default": null
     },
+    "tenants": {
+      "type": "object",
+      "description": "Tenants datasource configuration.",
+      "default": null,
+      "properties": {
+        "[tanantId]": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "data-source": {
+              "description": "Data source information for tenant",
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "database-type": {
+                  "description": "Database used in the backend",
+                  "type": "string",
+                  "enum": [
+                    "mssql",
+                    "postgresql",
+                    "mysql",
+                    "cosmosdb_nosql",
+                    "cosmosdb_postgresql"
+                  ]
+                },
+                "connection-string": {
+                  "description": "Connection string for the selected database type",
+                  "type": "string"
+                },
+                "options": {
+                  "description": "Database specific properties for the backend database",
+                  "type": "object"
+                }
+              },
+              "required": [
+                "database-type",
+                "connection-string"
+              ]
+            }
+          }
+        }
+      }
+    },
     "runtime": {
       "type": "object",
       "description": "Runtime configuration settings",
@@ -228,13 +271,24 @@
             }
           }
         },
+        "multi-tenancy": {
+          "enabled": {
+            "type": "boolean",
+            "description": "Enable multi-tenancy support. Once enabled, the 'tenant-encrypt-key' property must be set. Also, at least one tenant must be defined in the 'tenants' property.",
+            "default": false
+          },
+          "tenant-encrypt-key": {
+            "type": "string",
+            "description": "Key used to decrypt tenant information. Must be set if multi-tenancy is enabled. Should use HS256 algorithm."
+          }
+        },
         "host": {
           "type": "object",
           "description": "Global hosting configuration",
           "additionalProperties": false,
           "properties": {
             "max-response-size-mb": {
-             "type": [
+              "type": [
                 "integer",
                 "null"
               ],

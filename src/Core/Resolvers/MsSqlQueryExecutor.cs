@@ -11,6 +11,7 @@ using Azure.DataApiBuilder.Config.ObjectModel;
 using Azure.DataApiBuilder.Core.Authorization;
 using Azure.DataApiBuilder.Core.Configurations;
 using Azure.DataApiBuilder.Core.Models;
+using Azure.DataApiBuilder.Core.Services;
 using Azure.DataApiBuilder.Service.Exceptions;
 using Azure.Identity;
 using Microsoft.AspNetCore.Http;
@@ -64,6 +65,8 @@ namespace Azure.DataApiBuilder.Core.Resolvers
 
         private readonly RuntimeConfigProvider _runtimeConfigProvider;
 
+        private readonly MultiTenantDataSourceService _multiTenantDataSourceService;
+
         private const string QUERYIDHEADER = "QueryIdentifyingIds";
 
         public MsSqlQueryExecutor(
@@ -82,7 +85,28 @@ namespace Azure.DataApiBuilder.Core.Resolvers
             _dataSourceToSessionContextUsage = new Dictionary<string, bool>();
             _accessTokensFromConfiguration = runtimeConfigProvider.ManagedIdentityAccessToken;
             _runtimeConfigProvider = runtimeConfigProvider;
+            _multiTenantDataSourceService = new(_runtimeConfigProvider);
             ConfigureMsSqlQueryEecutor();
+        }
+
+        public override SqlConnection CreateConnection(HttpContext? httpContext, string dataSourceName)
+        {
+            if (_runtimeConfigProvider.GetConfig().IsEnabledMultiTenancy && httpContext != null)
+            {
+                bool foundConnectionString = _multiTenantDataSourceService.GetConnectionString(httpContext, dataSourceName, ConnectionStringBuilders, out string connectionString);
+
+                if (!foundConnectionString)
+                {
+                    throw new DataApiBuilderException("Query execution failed. Could not find datasource for tenant to execute query against", HttpStatusCode.BadRequest, DataApiBuilderException.SubStatusCodes.DataSourceNotFound);
+                }
+
+                return new()
+                {
+                    ConnectionString = connectionString
+                };
+            }
+
+            return CreateConnection(dataSourceName);
         }
 
         /// <summary>
